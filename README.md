@@ -15,6 +15,7 @@ Personalized_Welfare_Consulting
 ---
 
 실행 방법
+
 이 프로젝트를 로컬 환경에서 실행하려면 아래 명령어를 순서대로 입력하세요.
 
 1. 라이브러리 설치, 실행
@@ -26,6 +27,7 @@ streamlit run app.py
 ```
 
 2. 에이전트 간 공동 데이터 규격
+
 1) 사용자 프로필 데이터 규격(입력 데이터)
 ```python
 user_profile = {
