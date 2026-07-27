@@ -10,8 +10,26 @@ Personalized_Welfare_Consulting
 * 신서원: 데이터베이스
 * 김현서: 백엔드 및 웹 화면
 
-> 개발 환경 (Python Version): `3.13.2`
+> 개발 환경
 
+Python 3.12.2 기준으로 맞춥니다. **가상환경 자체를 공유하는 게 아니라, 각자 본인 컴퓨터에 Anaconda/conda 환경을 만들고 `requirements.txt`로 같은 버전의 패키지를 설치하는 방식입니다.**  
+
+```powershell
+# 1) Anaconda Prompt 또는 PowerShell에서 conda 가상환경 생성
+conda create -n Personalized_Welfare_Consulting python=3.12.2 -y
+conda activate Personalized_Welfare_Consulting
+
+# 2) 저장소 클론 후 폴더 이동
+git clone https://github.com/ysg0306/Personalized_Welfare_Consulting
+cd Personalized_Welfare_Consulting
+
+# 3) 정확히 같은 버전으로 패키지 설치
+pip install -r requirements.txt
+```
+
+- Anaconda/conda 환경을 사용하는 방식입니다.
+- `conda env list`로 현재 환경을 확인할 수 있습니다.
+- 새로운 패키지를 설치했다면, `pip freeze > requirements.txt`로 갱신해서 커밋에 포함해주세요 (다른 사람도 같은 버전을 쓰게 하기 위함)
 ---
 
 실행 방법
