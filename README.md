@@ -12,11 +12,11 @@ Personalized_Welfare_Consulting
 
 > 개발 환경
 
-Python 3.12.2 기준으로 맞춥니다. **가상환경 자체를 공유하는 게 아니라, 각자 본인 컴퓨터에 Anaconda/conda 환경을 만들고 `requirements.txt`로 같은 버전의 패키지를 설치하는 방식입니다.**  
+Python 3.13.2 기준으로 맞춥니다. **가상환경 자체를 공유하는 게 아니라, 각자 본인 컴퓨터에 Anaconda/conda 환경을 만들고 `requirements.txt`로 같은 버전의 패키지를 설치하는 방식입니다.**  
 
 ```powershell
 # 1) Anaconda Prompt 또는 PowerShell에서 conda 가상환경 생성
-conda create -n Personalized_Welfare_Consulting python=3.12.2 -y
+conda create -n Personalized_Welfare_Consulting python=3.13.2 -y
 conda activate Personalized_Welfare_Consulting
 
 # 2) 저장소 클론 후 폴더 이동
