@@ -34,7 +34,9 @@ def setup_mysql():
         target_income INT,
         target_region VARCHAR(50),
         target_student BOOLEAN,
-        original_content TEXT
+        original_content TEXT,
+        text_embedding LONGTEXT,
+        keyword_embedding LONGTEXT
     );
     """)
     
