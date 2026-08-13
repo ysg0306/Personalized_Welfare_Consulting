@@ -48,3 +48,25 @@ def search_recommended_policy(user_query):
         n_results=2 
     )
     return results
+
+# ==========================================
+# 3. 데이터 하드 필터링 함수 (영준님 요청 기능)
+# ==========================================
+def get_filtered_policies(user_profile):
+    conn = get_mysql_conn()
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
+    
+    income = user_profile.get("user_income", 10)
+    region = user_profile.get("user_region", "")
+    
+    sql = """
+        SELECT * FROM policies 
+        WHERE target_income >= %s 
+        AND (target_region = %s OR target_region = '전국')
+    """
+    
+    cursor.execute(sql, (income, region))
+    filtered_results = cursor.fetchall()
+    
+    conn.close()
+    return filtered_results
