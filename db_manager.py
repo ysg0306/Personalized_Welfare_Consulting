@@ -4,7 +4,7 @@ import chromadb
 # ==========================================
 # 0. 기본 세팅 (비밀번호 꼭 수정!)
 # ==========================================
-DB_PASSWORD = '0000'
+DB_PASSWORD = ''
 
 def get_mysql_conn():
     return pymysql.connect(

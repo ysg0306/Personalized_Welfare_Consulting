@@ -5,7 +5,7 @@ def setup_mysql():
     conn = pymysql.connect(
         host='localhost', 
         user='root', 
-        password='0000', 
+        password='', 
         charset='utf8mb4'
     )
     cursor = conn.cursor()
