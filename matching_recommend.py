@@ -8,27 +8,19 @@ from kiwipiepy import Kiwi     # 한국어 형태소 분석기
 from sentence_transformers import SentenceTransformer, util
 import torch
 
+from db_manager import get_mysql_conn, collection
+import json
 
 # BASE_DIR = Path.cwd()
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data" / "raw"
 
-# DB호출로 수정 예정
-def load_data(date_path: Path) -> pd.DataFrame:
-   
-    file_path = list(date_path.glob("*.csv"))
-    if not file_path:
-        raise FileNotFoundError("폴더 안에 CSV 파일이 존재하지 않습니다.")
-    data = pd.read_csv(file_path[0])
-
-    _make_keyword_embedding(data)
-    return data
 
 def _make_keyword_embedding(data: pd.DataFrame):
     """
     복지 혜택 데이터에 키워드 임베딩값이 없는 경우 생성 후 저장하는 함수
     """
-    if "embedding" not in data.columns:
+    if "keyword_embedding" not in data.columns:
         data["keyword_embedding"] = None
 
     if data["keyword_embedding"].notna().all():
@@ -36,8 +28,8 @@ def _make_keyword_embedding(data: pd.DataFrame):
 
     embedding_model = SentenceTransformer('jhgan/ko-sroberta-multitask')
     kiwi = Kiwi()
-    keywoerd_model = KeyBERT(model=SentenceTransformer('jhgan/ko-sroberta-multitask'))
-    tokens = kiwi.tokenize(data["original_content"])
+    keywoerd_model = KeyBERT(model=embedding_model)
+    
 
     mask = data["keyword_embedding"].isna()
     index = data[mask].index
@@ -45,16 +37,51 @@ def _make_keyword_embedding(data: pd.DataFrame):
     # 배치 처리: 모든 키워드를 한 번에 임베딩
     keyword_texts = []
     for idx in index:
+        row = data.loc[idx]
+        tokens = kiwi.tokenize(str(row["original_content"]))
         policy_keyword = _build_policy_keyword_features(data.loc[idx], model=keywoerd_model, tokens=tokens)
         keyword_texts.append(policy_keyword)
     
     # 한 번에 배치 임베딩 수행
-    embeddings = embedding_model.encode(keyword_texts, convert_to_tensor=True)
+    embeddings = embedding_model.encode(keyword_texts)
     
     # 결과 저장
     for idx, embedding in zip(index, embeddings):
-        data.loc[idx, "embedding"] = embedding
+        data.loc[idx, "keyword_embedding"] = embedding.tolist()
 
+    # DB업데이트
+    conn = get_mysql_conn()
+    try:
+        with conn.cursor() as cursor:
+            # 임시 테이블 생성
+            cursor.execute("""
+                CREATE TEMPORARY TABLE temp_keyword_embeddings (
+                    policy_id VARCHAR(255) PRIMARY KEY,
+                    keyword_embedding JSON
+                )
+            """)
+            update_tuples = []
+            for idx in index:
+                row = data.loc[idx]
+                p_id = str(row["policy_id"] if "policy_id" in row else str(idx))
+                emb_json = json.dumps(row["keyword_embedding"])
+                update_tuples.append((p_id, emb_json))  # (고유 ID, 임베딩_JSON문자열)
+
+            # 임시 테이블에 일괄 삽입
+            cursor.executemany("""
+                INSERT INTO temp_keyword_embeddings (policy_id, keyword_embedding)
+                VALUES (%s, %s)
+            """, update_tuples)
+
+            # 원본 테이블(policies)의 keyword_embedding 컬럼만 선택적 UPDATE
+            cursor.execute("""
+                UPDATE policies p
+                JOIN temp_keyword_embeddings t ON p.policy_id = t.policy_id
+                SET p.keyword_embedding = t.keyword_embedding
+            """)
+        conn.commit()
+    finally:
+        conn.close()
 
 def _build_user_keyword_features(user_profile: Dict[str, Any]) -> str:
     """
@@ -90,7 +117,7 @@ def _build_user_content_features(user_profile: Dict[str, Any]) -> str:
     사용자 프로필 기반으로 가상 텍스트 생성
     LLM 에이전트 활용
     """
-    pass
+    return 0
 
 
 # 혜택 키워드 기반 특징 생성(미리 임베딩을 수행/ 업데이트 대비)
@@ -136,6 +163,9 @@ def make_score(user_profile: Dict[str, Any], policy_data: pd.DataFrame, top_k = 
     사용자 프로필과 복지 혜택 간의 유사도를 기반으로 점수를 계산하는 함수
     returns: 추천 정책 리스트 (JSON) top_k 개수만큼 반환
     """
+
+    _make_keyword_embedding(policy_data)
+
     user_keywords = _build_user_keyword_features(user_profile)
     user_content = _build_user_content_features(user_profile)
     keywords_similarity = calculate_similarity(user_keywords, policy_data, type="keyword_embedding")
