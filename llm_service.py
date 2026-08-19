@@ -70,7 +70,7 @@ def _parse_summary_json(text: str) -> List[str]:
     return cleaned_lines[:3]
 
 
-def generate_policy_summary(original_content: str, provider: str = "groq") -> List[str]:
+def generate_policy_summary(original_content: str) -> List[str]:
     """
     제공된 정책 원문(original_content)을 3줄로 배리어프리 요약합니다.
     (기존 코드와의 호환성을 위해 provider 매개변수를 유지하되, 내부적으로는 Groq만 사용합니다.)

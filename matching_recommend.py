@@ -3,16 +3,13 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from db_manager import collection, get_mysql_conn
+
 from keybert import KeyBERT  # 한국어 키워드 추출
 from kiwipiepy import Kiwi  # 한국어 형태소 분석기
 import numpy as np
 import pandas as pd
 from sentence_transformers import SentenceTransformer, util
 import torch
-
-# BASE_DIR = Path.cwd()
-BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data" / "raw"
 
 
 def _make_keyword_embedding(data: pd.DataFrame):
@@ -37,19 +34,14 @@ def _make_keyword_embedding(data: pd.DataFrame):
     for idx in index:
         row = data.loc[idx]
         tokens = kiwi.tokenize(str(row["original_content"]))
-        policy_keyword = _build_policy_keyword_features(data.loc[idx], model=keywoerd_model, tokens=tokens)
+        policy_keyword = _build_policy_keyword_features(model=keywoerd_model, tokens=tokens)
         keyword_texts.append(policy_keyword)
     
-    # [수정] 판다스 칼럼을 미리 object 타입으로 변환
-    # 이유: 기본 데이터 타입 상태에서 벡터(리스트)를 넣으면 판다스가 차원/길이 불일치 에러(ValueError)를 발생시킴
     data["keyword_embedding"] = data.get("keyword_embedding", None).astype(object)
 
     # 한 번에 배치 임베딩 수행
     embeddings = embedding_model.encode(keyword_texts)
-    
-    # 결과 저장
-    # [수정] .loc 대신 .at 사용
-    # 이유: 단일 행 인덱싱 시 .loc을 쓰면 ndarray 대입 에러가 발생하므로, 단일 셀 대입에 최적화된 .at 사용
+
     for idx, embedding in zip(index, embeddings):
         data.at[idx, "keyword_embedding"] = embedding.tolist()
 
@@ -117,48 +109,40 @@ def _build_user_keyword_features(user_profile: Dict[str, Any]) -> str:
     user_keywords = " ".join(keywords)
     return user_keywords
 
-
-def _build_user_content_features(user_profile: Dict[str, Any]) -> str:
-    """
-    사용자 프로필 기반으로 텍스트 표현 생성
-    """
-    # 1. 사용자가 직접 입력한 user_text가 있으면 1순위로 사용!
-    user_text = str(user_profile.get("user_text", "")).strip()
-    if user_text:
-        return user_text
-
-    # 2. 만약 입력한 텍스트가 없으면 기존 프로필 기반 문장 사용 (Fallback)
-    user_keywords = _build_user_keyword_features(user_profile)
-    return f"사용자 프로필 정보: {user_keywords}" if user_keywords else ""
+    
 
 
-def _build_policy_keyword_features(policy_data: pd.Series, model, tokens) -> str:
+def _build_policy_keyword_features(model, tokens) -> str:
     """
     KeyBERT로 복지 혜택 본문에서 키워드를 추출하는 함수
     """
-    content = str(policy_data.get("original_content", ""))
-    
-    if not content.strip():
+    if not tokens:
         return ""
 
-# [수정] candidates 파라미터 제거
-# 이유: KeyBERT에 candidates 파라미터 전달 시 문자열 차원 에러(ValueError: too many dimensions 'str')가 발생하는 문제 방지
-    keywords = model.extract_keywords(
-        content, 
-        keyphrase_ngram_range=(1, 2), 
-        top_n=5
-    )
+    # NNG: 일반 명사, NNP: 고유 명사, NNB: 의존 명사
+    nouns = [token.form for token in tokens if token.tag in ["NNG", "NNP", "NNB"] and len(token.form) > 1]
+
+    if not nouns:
+        return ""
+    clean_text = " ".join(nouns)
+    try:
+        keywords = model.extract_keywords(
+            clean_text, 
+            keyphrase_ngram_range=(1, 2), 
+            top_n=5
+        )
+        return " ".join([kw[0] if isinstance(kw,tuple) else kw for kw in keywords])
     
-    policy_keywords = " ".join([kw[0] for kw in keywords if isinstance(kw, tuple)])
-    return policy_keywords
+    except Exception:
+        return ""
 
 
 def calculate_similarity(user_data: str, policy_data: pd.DataFrame, type: str) -> float:
     """
     사용자 프로필 키워드와 복지 혜택 키워드의 유사도를 계산하는 함수
+    return : 유사도 점수
     """
-# [수정] user_data 타입 안전화
-# 이유: 입력값이 숫자가 들어오거나 None일 경우 model.encode()에서 에러가 나는 것을 방지하기 위해 문자열로 강제 변환
+
     user_str = str(user_data) if user_data is not None else ""
     if user_str == "0":
         user_str = ""
@@ -166,9 +150,6 @@ def calculate_similarity(user_data: str, policy_data: pd.DataFrame, type: str) -
     model = SentenceTransformer('jhgan/ko-sroberta-multitask')
     user_embedding = model.encode(user_str, convert_to_tensor=True)
 
-    # [수정] DB 임베딩 파싱 예외 처리
-    # 이유: DB에서 읽어온 임베딩 값이 JSON string 문자열로 존재할 경우 torch.tensor() 변환 시 차원 에러 발생.
-    # json.loads()를 통해 float 리스트로 복원 후 텐서 변환
     raw_embeddings = policy_data[type].tolist() if type in policy_data.columns else []
     clean_embeddings = []
 
@@ -193,14 +174,15 @@ def calculate_similarity(user_data: str, policy_data: pd.DataFrame, type: str) -
     return similarity
 
 
-def make_score(user_profile: Dict[str, Any], policy_data: pd.DataFrame, top_k=3) -> List[Dict[str, Any]]:
+def make_score(user_profile: Dict[str, Any], user_text : List[str], policy_data: pd.DataFrame, top_k=3) -> List[Dict[str, Any]]:
     """
     사용자 프로필과 복지 혜택 간의 유사도를 기반으로 점수를 계산하는 함수
+    return : 상위 복지 혜택 top_k개
     """
     _make_keyword_embedding(policy_data)
 
     user_keywords = _build_user_keyword_features(user_profile)
-    user_content = _build_user_content_features(user_profile)
+    user_content = user_text[0]
     
     keywords_similarity = calculate_similarity(user_keywords, policy_data, type="keyword_embedding")
     content_similarity = calculate_similarity(user_content, policy_data, type="text_embedding")

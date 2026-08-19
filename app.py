@@ -12,7 +12,7 @@ try:
     from db_manager import get_filtered_policies
     from matching_recommend import make_score
     from llm_service import generate_policy_summary          # 공고문 3줄 요약 LLM
-    from llm_service_profile import generate_policy_summary as generate_user_profile_summary  # 사용자 프로필 요약 LLM
+    from llm_service_profile import generate_user_profile_summary  # 사용자 프로필 요약 LLM
 except ImportError as e:
     st.error(f"필요한 라이브러리/파일을 불러오는 중 오류가 발생했습니다: {e}")
 
@@ -109,7 +109,7 @@ if search_btn:
             recommendations = []
         else:
             policy_df = pd.DataFrame(filtered_raw)
-            recommendations = make_score(user_profile, policy_df, top_k=3)
+            recommendations = make_score(user_profile, profile_summary_list, policy_df, top_k=3)
             if isinstance(recommendations, pd.DataFrame):
                 recommendations = recommendations.to_dict(orient='records')
 
