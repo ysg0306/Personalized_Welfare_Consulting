@@ -232,6 +232,23 @@ if st.session_state.get('has_searched', False):
 
     tab1, tab2, tab3 = st.tabs(["✨ 전체 추천", "🏛️ 정부/지자체 혜택", "🏫 대학 혜택"])
     
+    # 대학 혜택 키워드 조건 분기
+    univ_keywords = ['대학', '학교', '장학', '캠퍼스', '학생', '취업지원관']
+    
+    univ_policies = []
+    gov_policies = []
+
+    for p in recommendations:
+        cat = str(p.get('category', '')).lower()
+        title = str(p.get('title', '') or p.get('policy_name', ''))
+        
+        # category가 univ이거나, 제목/카테고리에 대학 관련 키워드가 있으면 대학 혜택으로 분류
+        if cat == 'univ' or any(keyword in title for keyword in univ_keywords) or any(keyword in cat for keyword in univ_keywords):
+            univ_policies.append(p)
+        else:
+            gov_policies.append(p)
+
+    # 1. 전체 추천 탭
     with tab1:
         if recommendations:
             col1, col2 = st.columns(2)
@@ -240,10 +257,10 @@ if st.session_state.get('has_searched', False):
                 with target_col:
                     render_policy_card(policy, i, "all")
         else:
-            st.info("추천할 혜택이 없습니다.")
+            st.info("조건에 맞는 복지 혜택이 없습니다.")
 
+    # 2. 정부/지자체 혜택 탭
     with tab2:
-        gov_policies = [p for p in recommendations if p.get('category', 'government') == 'government']
         if gov_policies:
             col1, col2 = st.columns(2)
             for i, policy in enumerate(gov_policies):
@@ -253,8 +270,8 @@ if st.session_state.get('has_searched', False):
         else:
             st.info("조건에 맞는 정부/지자체 혜택이 없습니다.")
 
+    # 3. 대학 혜택 탭
     with tab3:
-        univ_policies = [p for p in recommendations if p.get('category') == 'univ']
         if univ_policies:
             col1, col2 = st.columns(2)
             for i, policy in enumerate(univ_policies):
