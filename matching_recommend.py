@@ -121,15 +121,15 @@ def _build_user_keyword_features(user_profile: Dict[str, Any]) -> str:
 def _build_user_content_features(user_profile: Dict[str, Any]) -> str:
     """
     사용자 프로필 기반으로 텍스트 표현 생성
-    (숫자 0 반환으로 인한 encode 에러 방지를 위해 빈 문자열 또는 프로필 문장 반환)
     """
-    # [수정] 기존 return 0 제거 후 문자열 리턴으로 수정
-    # 이유: 기존 return 0(int 타입)으로 인해 model.encode() 호출 시 ValueError(Unsupported input type: int) 발생.
-    # LLM 연결 전까지 임시로 user_keywords 기반 문자열을 반환하도록 처리
+    # 1. 사용자가 직접 입력한 user_text가 있으면 1순위로 사용!
+    user_text = str(user_profile.get("user_text", "")).strip()
+    if user_text:
+        return user_text
+
+    # 2. 만약 입력한 텍스트가 없으면 기존 프로필 기반 문장 사용 (Fallback)
     user_keywords = _build_user_keyword_features(user_profile)
-    if not user_keywords:
-        return ""
-    return f"사용자 프로필 정보: {user_keywords}"
+    return f"사용자 프로필 정보: {user_keywords}" if user_keywords else ""
 
 
 def _build_policy_keyword_features(policy_data: pd.Series, model, tokens) -> str:
