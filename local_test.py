@@ -25,7 +25,7 @@ def run_integration_test():
     print("1단계: AI(Groq)를 통해 복잡한 공고문을 쉬운 3줄 요약으로 정제하는 중입니다...")
     try:
         # llm_service에서 요약 함수 호출 (Groq 사용)
-        summary_list = generate_policy_summary(test_notice, provider=api_provider)
+        summary_list = generate_policy_summary(test_notice)
         
         print("\n[AI 3줄 요약 결과 수신 완료]")
         for i, line in enumerate(summary_list):
