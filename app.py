@@ -65,6 +65,12 @@ user_region = st.sidebar.selectbox(
 )
 is_student = st.sidebar.checkbox("대학생 여부", value=True)
 
+# Streamlit 입력 예시
+user_text_input = st.text_area(
+    "필요한 혜택이나 현재 상황을 입력해 주세요", 
+    placeholder="예: 자취 중이라 월세 지원이 필요해요."
+    ).strip()
+
 search_btn = st.sidebar.button("맞춤 혜택 조회하기")
 
 # 버튼을 눌렀을 때 실제 DB 및 AI 작동
@@ -73,13 +79,15 @@ if search_btn:
     st.write(f"###  {display_name}님을 위한 맞춤형 추천 리포트")
     
     with st.spinner("DB 조회 및 AI 추천 결과를 계산하고 있습니다..."):
+
         # 1. 사용자 프로필 딕셔너리 생성
         user_profile = {
             "user_age": user_age,
             "user_income": user_income,
             "user_region": user_region,
             "is_student": is_student,
-            "user_grade": 3  # 기본값
+            "user_grade": 3,  # 기본값
+            "user_text": user_text_input
         }
         
         # 2. 1차 필터링
